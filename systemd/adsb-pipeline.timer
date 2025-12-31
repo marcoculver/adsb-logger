@@ -1,0 +1,13 @@
+[Unit]
+Description=Run ADS-B pipeline hourly at :05 past the hour
+
+[Timer]
+# Run at 5 minutes past each hour (after logger compresses at :00)
+OnCalendar=*:05:00
+# Run shortly after boot
+OnBootSec=5min
+# Catch up if a run was missed (e.g., system was off)
+Persistent=true
+
+[Install]
+WantedBy=timers.target

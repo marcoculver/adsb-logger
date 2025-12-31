@@ -1,0 +1,20 @@
+[Unit]
+Description=ADS-B Log Pipeline (organize, sync, prune)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/adsb-pipeline.sh
+User=root
+Group=root
+
+# Timeouts
+TimeoutStartSec=600
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

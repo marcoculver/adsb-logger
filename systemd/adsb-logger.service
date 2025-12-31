@@ -9,23 +9,21 @@ User=adsbpi-base
 Group=adsbpi-base
 WorkingDirectory=/opt/adsb-logger
 
-# Ensure output dir exists with correct ownership
+# Ensure output dir exists
 ExecStartPre=/bin/mkdir -p /opt/adsb-logs
-ExecStartPre=/bin/chown -R adsbpi-base:adsbpi-base /opt/adsb-logs
 
-# Run logger (1 Hz, keep 30 days, ultrafeeder tar1090 endpoint)
+# Run logger (1 Hz poll, ultrafeeder tar1090 endpoint)
+# Note: Pruning is handled by adsb-pipeline.sh, not the logger
 ExecStart=/usr/bin/python3 /opt/adsb-logger/adsb_logger.py \
   --outdir /opt/adsb-logs \
   --url http://127.0.0.1:8080/data/aircraft.json \
   --tick 1.0 \
-  --keep-days 30 \
-  --fsync-every 1.0 \
-  --prune-every 3600
+  --fsync-every 1.0
 
 Restart=always
 RestartSec=3
 
-# Nice-to-haves
+# Security hardening
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
