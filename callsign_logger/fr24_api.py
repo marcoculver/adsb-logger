@@ -91,8 +91,8 @@ class FlightRadar24API:
         """
         callsign = callsign.strip().upper()
 
-        # Try the live flights endpoint
-        data = self._request("live/flights", {"callsigns": callsign})
+        # Try the live flight positions endpoint
+        data = self._request("live/flight-positions/full", {"callsigns": callsign})
 
         if not data or "data" not in data:
             return None
@@ -147,7 +147,7 @@ class FlightRadar24API:
         if bounds:
             params["bounds"] = bounds
 
-        data = self._request("live/flights", params)
+        data = self._request("live/flight-positions/full", params)
 
         if not data or "data" not in data:
             return None
@@ -177,8 +177,8 @@ class FlightRadar24API:
     def test_connection(self) -> bool:
         """Test API connectivity."""
         try:
-            # Try a simple search
-            data = self._request("live/flights", {"limit": 1})
+            # Try a simple search with limit
+            data = self._request("live/flight-positions/light", {"limit": 1})
             if data and "data" in data:
                 log.info("FR24 API connection successful")
                 return True

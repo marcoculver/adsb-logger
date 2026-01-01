@@ -55,8 +55,10 @@ def cmd_scan(args):
         end_date = start_date
 
     print(f"Scanning logs from {start_date.date()} to {end_date.date()}...")
+    print("(API lookups disabled - use 'lookup' command afterwards)")
 
-    monitor = CallsignMonitor()
+    # Skip API lookups during historical scan to save credits
+    monitor = CallsignMonitor(skip_api=True)
     monitor.scan_historical(start_date, end_date)
 
     # Show results
@@ -190,6 +192,73 @@ def cmd_lookup(args):
         print("  (Flight may not be currently active)")
 
 
+def cmd_fetch_routes(args):
+    """Batch fetch routes for callsigns missing route info."""
+    from callsign_logger import CallsignDatabase, FlightRadar24API
+    import time
+
+    db = CallsignDatabase()
+    api = FlightRadar24API()
+
+    # Get all callsigns without routes
+    all_callsigns = db.get_all_callsigns()
+    missing_routes = [cs for cs in all_callsigns if not cs.get('route')]
+
+    if not missing_routes:
+        print("All callsigns already have route info!")
+        return
+
+    print(f"Found {len(missing_routes)} callsigns without routes")
+
+    if args.limit:
+        missing_routes = missing_routes[:args.limit]
+        print(f"Processing first {args.limit} callsigns...")
+
+    success = 0
+    failed = 0
+
+    for i, cs in enumerate(missing_routes):
+        callsign = cs['callsign']
+        print(f"[{i+1}/{len(missing_routes)}] Looking up {callsign}...", end=" ")
+
+        try:
+            route_data = api.lookup_route(callsign)
+            if route_data and route_data.get('route'):
+                # Update database
+                db.cache_route(
+                    callsign,
+                    route_data.get('flight_number'),
+                    route_data.get('route'),
+                    route_data.get('origin'),
+                    route_data.get('destination')
+                )
+                # Also update main callsigns table
+                db.upsert_callsign(
+                    callsign=callsign,
+                    airline=cs['airline'],
+                    flight_number=route_data.get('flight_number'),
+                    route=route_data.get('route'),
+                    origin=route_data.get('origin'),
+                    destination=route_data.get('destination'),
+                    aircraft_type=route_data.get('aircraft_type'),
+                    registration=route_data.get('registration'),
+                )
+                print(f"{route_data.get('route')}")
+                success += 1
+            else:
+                print("not found (flight may not be active)")
+                failed += 1
+        except Exception as e:
+            print(f"error: {e}")
+            failed += 1
+
+        # Rate limiting - 1 second between requests
+        if i < len(missing_routes) - 1:
+            time.sleep(1)
+
+    print(f"\nDone! Success: {success}, Not found: {failed}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Callsign Logger - Track Emirates and Flydubai flights",
@@ -227,6 +296,10 @@ def main():
     lookup_parser = subparsers.add_parser("lookup", help="Look up callsign via API")
     lookup_parser.add_argument("callsign", help="Callsign to look up")
 
+    # Fetch routes command
+    fetch_parser = subparsers.add_parser("fetch-routes", help="Batch fetch routes for callsigns missing route info")
+    fetch_parser.add_argument("--limit", "-l", type=int, help="Max callsigns to process")
+
     args = parser.parse_args()
 
     try:
@@ -244,6 +317,8 @@ def main():
             cmd_schedule(args)
         elif args.command == "lookup":
             cmd_lookup(args)
+        elif args.command == "fetch-routes":
+            cmd_fetch_routes(args)
     except KeyboardInterrupt:
         print("\nInterrupted")
         return 1

@@ -38,11 +38,13 @@ class CallsignMonitor:
         self,
         db: Optional[CallsignDatabase] = None,
         api: Optional[FlightRadar24API] = None,
-        log_dir: Optional[Path] = None
+        log_dir: Optional[Path] = None,
+        skip_api: bool = False
     ):
         self.db = db or CallsignDatabase()
         self.api = api or FlightRadar24API()
         self.log_dir = log_dir or DEFAULT_LOG_DIR
+        self.skip_api = skip_api  # Skip API lookups (for historical scans)
         self.running = False
         self.last_processed_file = None
         self.last_processed_line = 0
@@ -106,8 +108,8 @@ class CallsignMonitor:
             # Try API lookup for new callsigns
             self.session_seen.add(callsign)
 
-            # Only try API if it's available
-            if self.api._api_available is not False:
+            # Only try API if enabled and available
+            if not self.skip_api and self.api._api_available is not False:
                 try:
                     route_data = self.api.lookup_route(callsign)
                     if route_data:
