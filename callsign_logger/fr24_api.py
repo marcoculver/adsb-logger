@@ -70,10 +70,10 @@ class FlightRadar24API:
             if e.code == 429:
                 log.warning("Rate limited - waiting 60 seconds")
                 time.sleep(60)
-            elif e.code == 403:
+            elif e.code in (400, 401, 403):
                 # Mark API as unavailable to avoid repeated failures
                 if self._api_available is None:
-                    log.warning("FR24 API access denied - will use heuristic flight numbers only")
+                    log.warning("FR24 API unavailable - will use heuristic flight numbers only")
                     self._api_available = False
             return None
         except URLError as e:
