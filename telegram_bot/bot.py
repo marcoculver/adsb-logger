@@ -237,6 +237,15 @@ class FlightBot:
                     caption="Altitude Profile"
                 )
 
+            # Send CSV file
+            csv_path = flight_data.output_dir / "flight_data.csv"
+            if csv_path.exists():
+                await update.message.reply_document(
+                    document=open(csv_path, "rb"),
+                    filename=f"{callsign}_{target_date}.csv",
+                    caption="Flight data CSV"
+                )
+
             # Send KML file if available
             kml_path = flight_data.output_dir / "flight_path.kml"
             if kml_path.exists():
