@@ -199,7 +199,11 @@ def convert_callsign_to_flight_number(callsign: str) -> Optional[str]:
     Attempt to convert a callsign to a flight number based on known patterns.
 
     For Emirates: UAE123 -> EK123
-    For Flydubai: FDB123 or FDB1AB -> FZ123 or FZ1AB
+    For Flydubai: FDB123 -> FZ123
+
+    Only converts callsigns with pure numeric suffixes (no letters).
+    Callsigns like UAE49K, FDB4CE are likely positioning/ferry flights
+    and should be looked up via API instead.
 
     Note: This is a heuristic and may not always be accurate.
     The API lookup is preferred for accurate data.
@@ -209,24 +213,19 @@ def convert_callsign_to_flight_number(callsign: str) -> Optional[str]:
     # Emirates: UAE -> EK
     if callsign.startswith("UAE"):
         suffix = callsign[3:].lstrip("0")  # Remove leading zeros
-        if suffix.isdigit():
+        # Only convert if purely numeric
+        if suffix and suffix.isdigit():
             return f"EK{suffix}"
-        return f"EK{callsign[3:]}"
+        # Non-numeric suffixes (UAE49K, UAEHAJ) = positioning/ferry flights
+        return None
 
     # Flydubai: FDB -> FZ
     if callsign.startswith("FDB"):
-        suffix = callsign[3:]
-        # Some FDB callsigns have letters (like FDB4CE)
-        # Try to extract just the numeric part
-        numeric_part = ""
-        for c in suffix:
-            if c.isdigit():
-                numeric_part += c
-            else:
-                break
-
-        if numeric_part:
-            return f"FZ{numeric_part.lstrip('0') or '0'}"
-        return f"FZ{suffix}"
+        suffix = callsign[3:].lstrip("0")  # Remove leading zeros
+        # Only convert if purely numeric
+        if suffix and suffix.isdigit():
+            return f"FZ{suffix}"
+        # Non-numeric suffixes (FDB4CE) = positioning/ferry flights
+        return None
 
     return None
