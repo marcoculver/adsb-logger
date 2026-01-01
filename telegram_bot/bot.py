@@ -38,6 +38,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from flight_extractor import FlightExtractor, Config
 from flight_export import CSVExporter, KMLGenerator
 from flight_charts import generate_all_charts, generate_dashboard
+from callsign_logger import CallsignDatabase, FlightRadar24API
 
 logging.basicConfig(
     level=logging.INFO,
@@ -81,6 +82,10 @@ class FlightBot:
 
         self.app: Optional[Application] = None
 
+        # Callsign logger components
+        self.callsign_db = CallsignDatabase()
+        self.fr24_api = FlightRadar24API()
+
     def is_authorized(self, user_id: int) -> bool:
         """Check if a user is authorized to use the bot."""
         if not self.allowed_users:
@@ -101,9 +106,14 @@ class FlightBot:
 
         await update.message.reply_text(
             "ADS-B Flight Extractor Bot\n\n"
-            "Commands:\n"
+            "Flight Extraction:\n"
             "/extract <callsign> <date> - Extract flight data\n"
-            "/list <date> - List flights on a date\n"
+            "/list <date> - List flights on a date\n\n"
+            "Callsign Tracking:\n"
+            "/callsigns - List tracked callsigns\n"
+            "/schedule <callsign> - Show schedule pattern\n"
+            "/lookup <callsign> - Look up via FR24 API\n"
+            "/csexport - Export callsigns to CSV\n\n"
             "/status - Show bot status\n"
             "/help - Show help\n\n"
             "Example: /extract FDB8876 2024-12-31"
@@ -114,17 +124,25 @@ class FlightBot:
         await update.message.reply_text(
             "ADS-B Flight Extractor Bot\n"
             "━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "FLIGHT EXTRACTION\n"
             "📍 /extract <callsign> <date>\n"
             "   Extract flight data with charts\n"
             "   Example: /extract FDB8876 2024-12-31\n\n"
             "📋 /list <date>\n"
-            "   List all flights on a date\n"
-            "   Example: /list 2024-12-31\n\n"
-            "📊 /status\n"
-            "   Show bot and system status\n\n"
-            "Date formats supported:\n"
-            "   YYYY-MM-DD (2024-12-31)\n"
-            "   YYYYMMDD (20241231)\n"
+            "   List all flights on a date\n\n"
+            "CALLSIGN TRACKING\n"
+            "📡 /callsigns [airline]\n"
+            "   List tracked Emirates/Flydubai callsigns\n"
+            "   Example: /callsigns Emirates\n\n"
+            "📅 /schedule <callsign>\n"
+            "   Show schedule pattern for a callsign\n"
+            "   Example: /schedule FDB4CE\n\n"
+            "🔍 /lookup <callsign>\n"
+            "   Look up via FlightRadar24 API\n\n"
+            "📤 /csexport\n"
+            "   Export callsigns to CSV\n\n"
+            "📊 /status - Bot status\n\n"
+            "Date formats: YYYY-MM-DD or YYYYMMDD"
         )
 
     async def cmd_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -152,6 +170,17 @@ class FlightBot:
         if output_exists:
             extractions = list(output_dir.glob("*_*"))
             status += f"  Extractions: {len(extractions)}\n"
+
+        # Callsign database stats
+        try:
+            cs_stats = self.callsign_db.get_stats()
+            status += f"\nCallsign Database:\n"
+            status += f"  Total callsigns: {cs_stats['total_callsigns']}\n"
+            status += f"  Total sightings: {cs_stats['total_sightings']}\n"
+            for airline, count in cs_stats['by_airline'].items():
+                status += f"  {airline}: {count}\n"
+        except Exception:
+            status += f"\nCallsign Database: Not initialized\n"
 
         await update.message.reply_text(status)
 
@@ -312,6 +341,157 @@ class FlightBot:
             log.exception(f"List error: {e}")
             await msg.edit_text(f"❌ Error: {e}")
 
+    async def cmd_callsigns(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /callsigns command - list tracked callsigns."""
+        if not self.is_authorized(update.effective_user.id):
+            await update.message.reply_text("Unauthorized")
+            return
+
+        args = context.args
+        airline = args[0] if args else None
+
+        try:
+            callsigns = self.callsign_db.get_all_callsigns(airline)
+
+            if not callsigns:
+                await update.message.reply_text("No callsigns found in database.\nRun the callsign monitor to collect data.")
+                return
+
+            response = "📡 Tracked Callsigns\n"
+            response += "━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+
+            # Show first 30
+            for cs in callsigns[:30]:
+                route = cs.get('route') or '-'
+                flight = cs.get('flight_number') or '-'
+                count = cs['sighting_count']
+                response += f"{cs['callsign']:<8} {flight:<6} {route:<10} ({count}x)\n"
+
+            if len(callsigns) > 30:
+                response += f"\n... and {len(callsigns) - 30} more"
+
+            response += f"\n\nTotal: {len(callsigns)} callsigns"
+
+            await update.message.reply_text(response)
+
+        except Exception as e:
+            log.exception(f"Callsigns error: {e}")
+            await update.message.reply_text(f"❌ Error: {e}")
+
+    async def cmd_schedule(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /schedule command - show schedule pattern for a callsign."""
+        if not self.is_authorized(update.effective_user.id):
+            await update.message.reply_text("Unauthorized")
+            return
+
+        args = context.args
+        if not args:
+            await update.message.reply_text("Usage: /schedule <callsign>\nExample: /schedule FDB4CE")
+            return
+
+        callsign = args[0].upper()
+
+        try:
+            cs_data = self.callsign_db.get_callsign(callsign)
+            if not cs_data:
+                await update.message.reply_text(f"Callsign {callsign} not found in database.")
+                return
+
+            schedule = self.callsign_db.get_schedule(callsign)
+
+            response = f"📅 Schedule for {callsign}\n"
+            response += "━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            response += f"Flight: {cs_data.get('flight_number') or 'Unknown'}\n"
+            response += f"Route: {cs_data.get('route') or 'Unknown'}\n"
+            response += f"Total sightings: {schedule['total_sightings']}\n\n"
+
+            days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+            response += "By day:\n"
+            for i, day in enumerate(days):
+                count = schedule['by_day_of_week'].get(i, 0)
+                bar = "█" * min(count, 10)
+                response += f"  {day}: {bar} ({count})\n"
+
+            response += "\nBy hour (UTC):\n"
+            for hour in range(24):
+                count = schedule['by_hour'].get(hour, 0)
+                if count > 0:
+                    bar = "█" * min(count, 8)
+                    response += f"  {hour:02d}:00 {bar} ({count})\n"
+
+            await update.message.reply_text(response)
+
+        except Exception as e:
+            log.exception(f"Schedule error: {e}")
+            await update.message.reply_text(f"❌ Error: {e}")
+
+    async def cmd_lookup(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /lookup command - look up callsign via FR24 API."""
+        if not self.is_authorized(update.effective_user.id):
+            await update.message.reply_text("Unauthorized")
+            return
+
+        args = context.args
+        if not args:
+            await update.message.reply_text("Usage: /lookup <callsign>\nExample: /lookup FDB4CE")
+            return
+
+        callsign = args[0].upper()
+
+        msg = await update.message.reply_text(f"🔍 Looking up {callsign}...")
+
+        try:
+            route_data = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: self.fr24_api.lookup_route(callsign)
+            )
+
+            if route_data:
+                response = f"🔍 {callsign}\n"
+                response += "━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                response += f"Flight: {route_data.get('flight_number') or 'Unknown'}\n"
+                response += f"Route: {route_data.get('route') or 'Unknown'}\n"
+                response += f"Origin: {route_data.get('origin') or 'Unknown'}\n"
+                response += f"Destination: {route_data.get('destination') or 'Unknown'}\n"
+                response += f"Aircraft: {route_data.get('aircraft_type') or 'Unknown'}\n"
+                response += f"Registration: {route_data.get('registration') or 'Unknown'}\n"
+                await msg.edit_text(response)
+            else:
+                await msg.edit_text(f"No data found for {callsign}\n(Flight may not be currently active)")
+
+        except Exception as e:
+            log.exception(f"Lookup error: {e}")
+            await msg.edit_text(f"❌ Error: {e}")
+
+    async def cmd_csexport(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /csexport command - export callsigns to CSV."""
+        if not self.is_authorized(update.effective_user.id):
+            await update.message.reply_text("Unauthorized")
+            return
+
+        try:
+            import tempfile
+
+            # Export to temp file
+            with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as f:
+                temp_path = Path(f.name)
+
+            self.callsign_db.export_csv(temp_path)
+
+            # Send file
+            await update.message.reply_document(
+                document=open(temp_path, "rb"),
+                filename="callsigns_export.csv",
+                caption="Callsign database export"
+            )
+
+            # Cleanup
+            temp_path.unlink()
+
+        except Exception as e:
+            log.exception(f"Export error: {e}")
+            await update.message.reply_text(f"❌ Error: {e}")
+
     def _parse_date(self, date_str: str) -> date:
         """Parse date string."""
         for fmt in ["%Y-%m-%d", "%Y%m%d", "%d/%m/%Y"]:
@@ -388,6 +568,12 @@ class FlightBot:
         self.app.add_handler(CommandHandler("status", self.cmd_status))
         self.app.add_handler(CommandHandler("extract", self.cmd_extract))
         self.app.add_handler(CommandHandler("list", self.cmd_list))
+
+        # Callsign tracking commands
+        self.app.add_handler(CommandHandler("callsigns", self.cmd_callsigns))
+        self.app.add_handler(CommandHandler("schedule", self.cmd_schedule))
+        self.app.add_handler(CommandHandler("lookup", self.cmd_lookup))
+        self.app.add_handler(CommandHandler("csexport", self.cmd_csexport))
 
         log.info("Starting bot...")
         log.info(f"Allowed users: {self.allowed_users or 'ALL (not recommended)'}")
