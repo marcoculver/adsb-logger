@@ -28,3 +28,10 @@ Thumbs.db
 
 # Test output
 /opt/adsb-logs/
+
+# Environment files (may contain secrets)
+.env
+*.env
+
+# Analyses output (large files, synced via Dropbox)
+analyses/

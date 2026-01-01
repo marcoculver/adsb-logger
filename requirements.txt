@@ -1,0 +1,17 @@
+# ADS-B Flight Extractor Dependencies
+# Install with: pip install -r requirements.txt
+
+# Data processing
+pandas>=2.0.0
+
+# Visualization - Matplotlib (static PNG charts)
+matplotlib>=3.7.0
+
+# Visualization - Plotly (interactive HTML charts)
+plotly>=5.18.0
+
+# KML generation for Google Earth
+simplekml>=1.3.6
+
+# Telegram bot
+python-telegram-bot>=20.0
