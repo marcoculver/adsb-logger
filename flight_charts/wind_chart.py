@@ -1,18 +1,72 @@
 """Wind analysis chart (track vs heading)."""
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
+import numpy as np
 
 from .base import BaseChart, HAS_MATPLOTLIB, HAS_PLOTLY
 
 if HAS_MATPLOTLIB:
     import matplotlib.pyplot as plt
-    import numpy as np
 if HAS_PLOTLY:
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
 
 log = logging.getLogger(__name__)
+
+
+def unwrap_angles(angles: np.ndarray) -> np.ndarray:
+    """
+    Unwrap angles to prevent discontinuities when crossing 0/360.
+
+    This keeps the line continuous by adjusting values that jump
+    more than 180 degrees.
+    """
+    angles = np.array(angles, dtype=float)
+    # Convert to radians, unwrap, convert back to degrees
+    radians = np.deg2rad(angles)
+    unwrapped = np.unwrap(radians)
+    return np.rad2deg(unwrapped)
+
+
+def normalize_to_range(angles: np.ndarray, center: float = 180) -> np.ndarray:
+    """
+    Normalize unwrapped angles back to a displayable range.
+
+    Uses the median to determine the best center point for display.
+    """
+    angles = np.array(angles, dtype=float)
+    median_val = np.nanmedian(angles)
+    # Shift to center around median
+    return angles
+
+
+def split_at_discontinuities(x, y, threshold=180):
+    """
+    Split data into segments at discontinuities.
+
+    Returns list of (x_segment, y_segment) tuples.
+    """
+    x = np.array(x)
+    y = np.array(y)
+
+    # Find discontinuities
+    diff = np.abs(np.diff(y))
+    breaks = np.where(diff > threshold)[0] + 1
+
+    # Split into segments
+    segments = []
+    prev_idx = 0
+    for idx in breaks:
+        if idx - prev_idx > 1:  # Only add segments with more than 1 point
+            segments.append((x[prev_idx:idx], y[prev_idx:idx]))
+        prev_idx = idx
+
+    # Add final segment
+    if len(x) - prev_idx > 1:
+        segments.append((x[prev_idx:], y[prev_idx:]))
+
+    return segments
 
 
 class WindChart(BaseChart):
@@ -24,6 +78,7 @@ class WindChart(BaseChart):
     - True heading (where aircraft is pointing)
     - Difference indicates wind correction angle
     - If available: wind speed/direction from ADS-B
+    - Handles 0/360 wrap-around gracefully
     """
 
     @property
@@ -38,7 +93,7 @@ class WindChart(BaseChart):
         if not HAS_MATPLOTLIB or self.df is None:
             return None
 
-        df = self.df
+        df = self.df.copy()
 
         if "datetime" not in df.columns:
             return None
@@ -47,51 +102,81 @@ class WindChart(BaseChart):
         has_true_heading = "true_heading" in df.columns and df["true_heading"].notna().any()
         has_mag_heading = "mag_heading" in df.columns and df["mag_heading"].notna().any()
         has_wind = "wd" in df.columns and df["wd"].notna().any()
+        has_wind_speed = "ws" in df.columns and df["ws"].notna().any()
 
         if not has_track:
             log.warning("No track data for wind chart")
             return None
 
-        # Create subplots: top for track/heading, bottom for wind correction or wind data
+        # Create subplots
         if has_wind:
-            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), sharex=True,
+                                           gridspec_kw={"height_ratios": [2, 1]})
         else:
             fig, ax1 = plt.subplots(1, 1, figsize=(12, 5))
             ax2 = None
 
-        # Track and heading
-        ax1.plot(df["datetime"], df["track"], "b-", linewidth=1.5,
-                label="Track (ground path)", alpha=0.9)
+        # Get heading data
+        heading_col = "true_heading" if has_true_heading else ("mag_heading" if has_mag_heading else None)
 
-        if has_true_heading:
-            ax1.plot(df["datetime"], df["true_heading"], "r--", linewidth=1.5,
-                    label="True Heading", alpha=0.8)
-        elif has_mag_heading:
-            ax1.plot(df["datetime"], df["mag_heading"], "r--", linewidth=1.5,
-                    label="Mag Heading", alpha=0.8)
+        # Plot track - split at discontinuities to avoid ugly lines
+        track_segments = split_at_discontinuities(df["datetime"].values, df["track"].values)
+        for i, (x_seg, y_seg) in enumerate(track_segments):
+            ax1.plot(x_seg, y_seg, "b-", linewidth=1.5, alpha=0.9,
+                    label="Track" if i == 0 else None)
+
+        # Plot heading
+        if heading_col:
+            heading_segments = split_at_discontinuities(df["datetime"].values, df[heading_col].values)
+            for i, (x_seg, y_seg) in enumerate(heading_segments):
+                ax1.plot(x_seg, y_seg, "r--", linewidth=1.5, alpha=0.8,
+                        label="Heading" if i == 0 else None)
 
         ax1.set_ylabel("Degrees")
         ax1.set_ylim(0, 360)
-        ax1.set_yticks([0, 90, 180, 270, 360])
+        ax1.set_yticks([0, 45, 90, 135, 180, 225, 270, 315, 360])
         ax1.legend(loc="upper right")
         ax1.grid(True, alpha=0.3)
         ax1.set_title(self.title)
 
-        # Wind correction angle or actual wind data
-        if ax2 is not None and has_wind:
-            ws = df.get("ws", None)
-            wd = df["wd"]
+        # Calculate and plot wind correction angle on secondary axis
+        if heading_col:
+            heading = df[heading_col].values
+            track = df["track"].values
 
-            ax2.plot(df["datetime"], wd, "g-", linewidth=1.5, label="Wind Direction")
-            ax2.set_ylabel("Wind Direction (deg)", color="green")
+            # Calculate WCA (positive = crabbing right, negative = crabbing left)
+            wca = track - heading
+            # Normalize to -180 to +180
+            wca = np.where(wca > 180, wca - 360, wca)
+            wca = np.where(wca < -180, wca + 360, wca)
+
+            ax1b = ax1.twinx()
+            ax1b.fill_between(df["datetime"], 0, wca, alpha=0.3, color="purple",
+                            where=~np.isnan(wca))
+            ax1b.axhline(y=0, color="purple", linestyle="-", linewidth=0.5, alpha=0.5)
+            ax1b.set_ylabel("Wind Correction Angle (°)", color="purple")
+            ax1b.tick_params(axis="y", labelcolor="purple")
+            ax1b.set_ylim(-45, 45)
+
+        # Wind data subplot
+        if ax2 is not None and has_wind:
+            # Split wind direction at discontinuities too
+            wd_segments = split_at_discontinuities(df["datetime"].values, df["wd"].values)
+            for i, (x_seg, y_seg) in enumerate(wd_segments):
+                ax2.plot(x_seg, y_seg, "g-", linewidth=1.5,
+                        label="Wind Dir" if i == 0 else None)
+
+            ax2.set_ylabel("Wind Direction (°)", color="green")
             ax2.tick_params(axis="y", labelcolor="green")
             ax2.set_ylim(0, 360)
+            ax2.set_yticks([0, 90, 180, 270, 360])
 
-            if ws is not None and ws.notna().any():
+            if has_wind_speed:
                 ax2b = ax2.twinx()
-                ax2b.plot(df["datetime"], ws, "m-", linewidth=1.5, label="Wind Speed")
+                ax2b.plot(df["datetime"], df["ws"], "m-", linewidth=1.5, label="Wind Speed")
                 ax2b.set_ylabel("Wind Speed (kts)", color="magenta")
                 ax2b.tick_params(axis="y", labelcolor="magenta")
+                ax2b.set_ylim(0, max(df["ws"].max() * 1.2, 50))
 
             ax2.grid(True, alpha=0.3)
             ax2.legend(loc="upper left")
@@ -101,20 +186,6 @@ class WindChart(BaseChart):
             self._format_time_axis(ax1)
             ax1.set_xlabel("Time (UTC)")
 
-            # If we have heading, show wind correction angle
-            if has_true_heading or has_mag_heading:
-                heading = df["true_heading"] if has_true_heading else df["mag_heading"]
-                wca = df["track"] - heading
-
-                # Handle wrap-around
-                wca = wca.apply(lambda x: x - 360 if x > 180 else (x + 360 if x < -180 else x))
-
-                ax1b = ax1.twinx()
-                ax1b.fill_between(df["datetime"], 0, wca, alpha=0.3, color="purple")
-                ax1b.set_ylabel("Wind Correction Angle (deg)", color="purple")
-                ax1b.tick_params(axis="y", labelcolor="purple")
-                ax1b.set_ylim(-30, 30)
-
         plt.tight_layout()
         return fig
 
@@ -122,7 +193,7 @@ class WindChart(BaseChart):
         if not HAS_PLOTLY or self.df is None:
             return None
 
-        df = self.df
+        df = self.df.copy()
 
         if "datetime" not in df.columns:
             return None
@@ -135,60 +206,57 @@ class WindChart(BaseChart):
         if not has_track:
             return None
 
+        # Get heading column
+        heading_col = "true_heading" if has_true_heading else ("mag_heading" if has_mag_heading else None)
+
         # Create subplots
         if has_wind:
             fig = make_subplots(
                 rows=2, cols=1,
                 shared_xaxes=True,
                 vertical_spacing=0.1,
+                row_heights=[0.65, 0.35],
                 subplot_titles=("Track vs Heading", "Wind Data"),
                 specs=[[{"secondary_y": True}], [{"secondary_y": True}]]
             )
         else:
             fig = make_subplots(specs=[[{"secondary_y": True}]])
 
-        # Track
+        # Plot track - use None to break lines at discontinuities
+        track_with_breaks = self._insert_breaks(df["datetime"].values, df["track"].values)
         fig.add_trace(
             go.Scatter(
-                x=df["datetime"],
-                y=df["track"],
+                x=track_with_breaks[0],
+                y=track_with_breaks[1],
                 name="Track",
                 line=dict(color="blue", width=2),
-                hovertemplate="<b>Track: %{y:.0f}°</b><extra></extra>"
+                hovertemplate="<b>Track: %{y:.0f}°</b><extra></extra>",
+                connectgaps=False
             ),
             row=1, col=1, secondary_y=False
         )
 
-        # Heading
-        if has_true_heading:
+        # Plot heading
+        if heading_col:
+            hdg_with_breaks = self._insert_breaks(df["datetime"].values, df[heading_col].values)
             fig.add_trace(
                 go.Scatter(
-                    x=df["datetime"],
-                    y=df["true_heading"],
-                    name="True Heading",
+                    x=hdg_with_breaks[0],
+                    y=hdg_with_breaks[1],
+                    name="Heading",
                     line=dict(color="red", width=2, dash="dash"),
-                    hovertemplate="<b>HDG: %{y:.0f}°</b><extra></extra>"
-                ),
-                row=1, col=1, secondary_y=False
-            )
-        elif has_mag_heading:
-            fig.add_trace(
-                go.Scatter(
-                    x=df["datetime"],
-                    y=df["mag_heading"],
-                    name="Mag Heading",
-                    line=dict(color="red", width=2, dash="dash"),
-                    hovertemplate="<b>HDG: %{y:.0f}°</b><extra></extra>"
+                    hovertemplate="<b>HDG: %{y:.0f}°</b><extra></extra>",
+                    connectgaps=False
                 ),
                 row=1, col=1, secondary_y=False
             )
 
-        # Wind correction angle
-        if has_true_heading or has_mag_heading:
-            heading = df["true_heading"] if has_true_heading else df["mag_heading"]
-            wca = df["track"] - heading
-            # Handle wrap-around
-            wca = wca.apply(lambda x: x - 360 if x > 180 else (x + 360 if x < -180 else x))
+            # Wind correction angle
+            heading = df[heading_col].values
+            track = df["track"].values
+            wca = track - heading
+            wca = np.where(wca > 180, wca - 360, wca)
+            wca = np.where(wca < -180, wca + 360, wca)
 
             fig.add_trace(
                 go.Scatter(
@@ -203,15 +271,17 @@ class WindChart(BaseChart):
                 row=1, col=1, secondary_y=True
             )
 
-        # Wind data if available
+        # Wind data
         if has_wind:
+            wd_with_breaks = self._insert_breaks(df["datetime"].values, df["wd"].values)
             fig.add_trace(
                 go.Scatter(
-                    x=df["datetime"],
-                    y=df["wd"],
+                    x=wd_with_breaks[0],
+                    y=wd_with_breaks[1],
                     name="Wind Direction",
                     line=dict(color="green", width=2),
-                    hovertemplate="<b>WD: %{y:.0f}°</b><extra></extra>"
+                    hovertemplate="<b>WD: %{y:.0f}°</b><extra></extra>",
+                    connectgaps=False
                 ),
                 row=2, col=1, secondary_y=False
             )
@@ -238,7 +308,7 @@ class WindChart(BaseChart):
         )
 
         fig.update_yaxes(title_text="Degrees", range=[0, 360], row=1, col=1, secondary_y=False)
-        fig.update_yaxes(title_text="WCA (°)", range=[-30, 30], row=1, col=1, secondary_y=True)
+        fig.update_yaxes(title_text="WCA (°)", range=[-45, 45], row=1, col=1, secondary_y=True)
 
         if has_wind:
             fig.update_yaxes(title_text="Wind Dir (°)", range=[0, 360], row=2, col=1, secondary_y=False)
@@ -248,3 +318,25 @@ class WindChart(BaseChart):
             fig.update_xaxes(title_text="Time (UTC)", row=1, col=1)
 
         return fig
+
+    def _insert_breaks(self, x, y, threshold=180):
+        """Insert None values at discontinuities to break the line."""
+        x = list(x)
+        y = list(y)
+
+        new_x = []
+        new_y = []
+
+        for i in range(len(y)):
+            new_x.append(x[i])
+            new_y.append(y[i])
+
+            if i < len(y) - 1:
+                # Check for discontinuity
+                if y[i] is not None and y[i+1] is not None:
+                    diff = abs(float(y[i+1]) - float(y[i]))
+                    if diff > threshold:
+                        new_x.append(None)
+                        new_y.append(None)
+
+        return new_x, new_y

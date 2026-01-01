@@ -9,12 +9,16 @@ from .vertical_rate import VerticalRateChart
 from .wind_chart import WindChart
 from .signal_chart import SignalChart
 from .accuracy_chart import AccuracyChart
+from .phase_chart import FlightPhaseChart
+from .track_map import TrackMapChart
 
 log = logging.getLogger(__name__)
 
 # Chart classes in display order
 CHART_CLASSES = [
+    TrackMapChart,       # Ground track map first
     AltitudeChart,
+    FlightPhaseChart,    # Flight phases
     SpeedChart,
     VerticalRateChart,
     WindChart,

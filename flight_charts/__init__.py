@@ -6,6 +6,8 @@ from .vertical_rate import VerticalRateChart
 from .wind_chart import WindChart
 from .signal_chart import SignalChart
 from .accuracy_chart import AccuracyChart
+from .phase_chart import FlightPhaseChart
+from .track_map import TrackMapChart
 from .dashboard import generate_dashboard, generate_all_charts
 
 __all__ = [
@@ -17,6 +19,8 @@ __all__ = [
     'WindChart',
     'SignalChart',
     'AccuracyChart',
+    'FlightPhaseChart',
+    'TrackMapChart',
     'generate_dashboard',
     'generate_all_charts',
 ]
