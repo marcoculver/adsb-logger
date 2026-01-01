@@ -9,13 +9,13 @@ REM   3. Double-click this file or run from command prompt
 REM --- Configuration ---
 REM Get your bot token from @BotFather on Telegram
 if not defined TELEGRAM_BOT_TOKEN (
-    set TELEGRAM_BOT_TOKEN=YOUR_BOT_TOKEN_HERE
+    set TELEGRAM_BOT_TOKEN=8230471568:AAHuAf9uYkd9S5ZngkZ7PBo2aXEd4QrttsA
 )
 
 REM Your Telegram user ID (get it by messaging @userinfobot)
 REM Multiple users: comma-separated, e.g., 123456789,987654321
 if not defined TELEGRAM_ALLOWED_USERS (
-    set TELEGRAM_ALLOWED_USERS=YOUR_USER_ID_HERE
+    set TELEGRAM_ALLOWED_USERS=1269568755
 )
 
 REM Log directory (Dropbox synced logs)
