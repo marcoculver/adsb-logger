@@ -1,8 +1,8 @@
 @echo off
-REM ADS-B Flight Extractor Telegram Bot Launcher
+REM Emirates/Flydubai Callsign Tracker Bot Launcher
 REM
-REM This bot extracts ANY flight from ADSB logs (not just Emirates/Flydubai)
-REM For callsign tracking, use run_callsign_bot.bat instead
+REM This bot tracks Emirates/Flydubai flights only (schedule patterns, lookups)
+REM For extracting ANY flight data, use run_bot.bat instead
 REM
 REM Usage:
 REM   1. Set your Telegram bot token below or as environment variable
@@ -11,8 +11,9 @@ REM   3. Double-click this file or run from command prompt
 
 REM --- Configuration ---
 REM Get your bot token from @BotFather on Telegram
+REM Bot: @callsignloggerbot
 if not defined TELEGRAM_BOT_TOKEN (
-    set TELEGRAM_BOT_TOKEN=8230471568:AAHuAf9uYkd9S5ZngkZ7PBo2aXEd4QrttsA
+    set TELEGRAM_BOT_TOKEN=8380442252:AAHhJd8vHDGEDHZK0-F7k7LY3fwmnINqGbw
 )
 
 REM Your Telegram user ID (get it by messaging @userinfobot)
@@ -21,24 +22,19 @@ if not defined TELEGRAM_ALLOWED_USERS (
     set TELEGRAM_ALLOWED_USERS=1269568755
 )
 
-REM Log directory (Dropbox synced logs)
-if not defined ADSB_LOG_DIR (
-    set ADSB_LOG_DIR=M:\Dropbox\ADSBPi-Base\raw
-)
-
-REM Output directory for analyses
-if not defined ADSB_OUTPUT_DIR (
-    set ADSB_OUTPUT_DIR=M:\Dropbox\ADSBPi-Base\analyses
+REM Database path
+if not defined CALLSIGN_DB_PATH (
+    set CALLSIGN_DB_PATH=M:\Dropbox\ADSBPi-Base\callsigns.db
 )
 
 REM --- End Configuration ---
 
 echo ============================================================
-echo   ADS-B Flight Extractor - Telegram Bot
+echo   Emirates/Flydubai Callsign Tracker Bot
+echo   Bot: @callsignloggerbot
 echo ============================================================
 echo.
-echo Log Directory: %ADSB_LOG_DIR%
-echo Output Directory: %ADSB_OUTPUT_DIR%
+echo Database: %CALLSIGN_DB_PATH%
 echo.
 
 REM Check if Python is available
@@ -50,8 +46,8 @@ if errorlevel 1 (
 )
 
 REM Check if we're in the right directory
-if not exist "%~dp0telegram_bot\bot.py" (
-    echo ERROR: bot.py not found. Make sure you're in the adsb-logger directory.
+if not exist "%~dp0telegram_bot\callsign_bot.py" (
+    echo ERROR: callsign_bot.py not found. Make sure you're in the adsb-logger directory.
     pause
     exit /b 1
 )
@@ -59,11 +55,11 @@ if not exist "%~dp0telegram_bot\bot.py" (
 REM Change to script directory
 cd /d "%~dp0"
 
-echo Starting Flight Extraction Bot...
+echo Starting Callsign Tracker Bot...
 echo Press Ctrl+C to stop
 echo.
 
-python -m telegram_bot.flight_bot
+python -m telegram_bot.callsign_bot
 
 if errorlevel 1 (
     echo.

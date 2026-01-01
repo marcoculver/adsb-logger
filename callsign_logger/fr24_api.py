@@ -177,14 +177,20 @@ class FlightRadar24API:
     def test_connection(self) -> bool:
         """Test API connectivity."""
         try:
-            # Try a simple search with limit
-            data = self._request("live/flight-positions/light", {"limit": 1})
+            # Try a simple search with bounds parameter (required)
+            # Use a small area to limit results
+            data = self._request("live/flight-positions/light", {
+                "bounds": "25.0,25.5,55.0,55.5"  # Small area around UAE
+            })
             if data and "data" in data:
                 log.info("FR24 API connection successful")
+                self._api_available = True
                 return True
+            self._api_available = False
             return False
         except Exception as e:
             log.error(f"FR24 API connection test failed: {e}")
+            self._api_available = False
             return False
 
 
