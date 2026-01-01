@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
+from urllib.parse import quote
 import json
 
 from .config import FR24_API_TOKEN, API_REQUEST_DELAY
@@ -21,9 +22,11 @@ class FlightRadar24API:
 
     BASE_URL = "https://fr24api.flightradar24.com/api"
 
-    def __init__(self, token: Optional[str] = None):
+    def __init__(self, token: Optional[str] = None, use_sandbox: bool = False):
         self.token = token or FR24_API_TOKEN
+        self.use_sandbox = use_sandbox
         self.last_request_time = 0
+        self._api_available = None  # Will be set after first test
 
     def _rate_limit(self):
         """Ensure we don't exceed rate limits."""
@@ -34,17 +37,27 @@ class FlightRadar24API:
 
     def _request(self, endpoint: str, params: Optional[Dict] = None) -> Optional[Dict]:
         """Make API request."""
+        # Skip if we already know API is unavailable
+        if self._api_available is False:
+            return None
+
         self._rate_limit()
 
-        url = f"{self.BASE_URL}/{endpoint}"
+        # Use sandbox prefix if enabled
+        if self.use_sandbox:
+            url = f"{self.BASE_URL}/sandbox/{endpoint}"
+        else:
+            url = f"{self.BASE_URL}/{endpoint}"
+
         if params:
-            query = "&".join(f"{k}={v}" for k, v in params.items())
+            query = "&".join(f"{k}={quote(str(v))}" for k, v in params.items())
             url = f"{url}?{query}"
 
         headers = {
             "Accept": "application/json",
             "Accept-Version": "v1",
             "Authorization": f"Bearer {self.token}",
+            "User-Agent": "ADSB-Logger/1.0",
         }
 
         try:
@@ -57,6 +70,11 @@ class FlightRadar24API:
             if e.code == 429:
                 log.warning("Rate limited - waiting 60 seconds")
                 time.sleep(60)
+            elif e.code == 403:
+                # Mark API as unavailable to avoid repeated failures
+                if self._api_available is None:
+                    log.warning("FR24 API access denied - will use heuristic flight numbers only")
+                    self._api_available = False
             return None
         except URLError as e:
             log.warning(f"FR24 API URL error: {e.reason}")

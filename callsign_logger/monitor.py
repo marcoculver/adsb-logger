@@ -106,25 +106,27 @@ class CallsignMonitor:
             # Try API lookup for new callsigns
             self.session_seen.add(callsign)
 
-            try:
-                route_data = self.api.lookup_route(callsign)
-                if route_data:
-                    flight_number = route_data.get("flight_number")
-                    route = route_data.get("route")
-                    origin = route_data.get("origin")
-                    destination = route_data.get("destination")
+            # Only try API if it's available
+            if self.api._api_available is not False:
+                try:
+                    route_data = self.api.lookup_route(callsign)
+                    if route_data:
+                        flight_number = route_data.get("flight_number")
+                        route = route_data.get("route")
+                        origin = route_data.get("origin")
+                        destination = route_data.get("destination")
 
-                    # Also get aircraft info if not in record
-                    if not aircraft_type:
-                        aircraft_type = route_data.get("aircraft_type")
-                    if not registration:
-                        registration = route_data.get("registration")
+                        # Also get aircraft info if not in record
+                        if not aircraft_type:
+                            aircraft_type = route_data.get("aircraft_type")
+                        if not registration:
+                            registration = route_data.get("registration")
 
-                    # Cache the result
-                    self.db.cache_route(callsign, flight_number, route, origin, destination)
-                    log.info(f"Looked up route for {callsign}: {route}")
-            except Exception as e:
-                log.warning(f"Failed to lookup route for {callsign}: {e}")
+                        # Cache the result
+                        self.db.cache_route(callsign, flight_number, route, origin, destination)
+                        log.info(f"Looked up route for {callsign}: {route}")
+                except Exception as e:
+                    log.debug(f"Failed to lookup route for {callsign}: {e}")
 
         # If no API data, try heuristic conversion
         if not flight_number:
