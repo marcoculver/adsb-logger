@@ -85,13 +85,13 @@ class FlightRadar24API:
 
     def get_flight_by_callsign(self, callsign: str) -> Optional[Dict[str, Any]]:
         """
-        Look up a flight by its callsign.
+        Look up a flight by its callsign using live flight positions endpoint.
 
         Returns flight details including route if available.
         """
         callsign = callsign.strip().upper()
 
-        # Try the live flight positions endpoint
+        # Use the live flight positions endpoint
         data = self._request("live/flight-positions/full", {"callsigns": callsign})
 
         if not data or "data" not in data:
@@ -103,15 +103,15 @@ class FlightRadar24API:
 
         flight = flights[0]
 
-        # Extract relevant info
+        # Extract relevant info - API returns flat structure
         result = {
             "callsign": callsign,
             "flight_number": flight.get("flight"),
-            "aircraft_type": flight.get("aircraft", {}).get("model", {}).get("code"),
-            "registration": flight.get("aircraft", {}).get("registration"),
-            "origin": flight.get("airport", {}).get("origin", {}).get("code", {}).get("iata"),
-            "destination": flight.get("airport", {}).get("destination", {}).get("code", {}).get("iata"),
-            "airline": flight.get("airline", {}).get("name"),
+            "aircraft_type": flight.get("type"),
+            "registration": flight.get("reg"),
+            "origin": flight.get("orig_iata"),
+            "destination": flight.get("dest_iata"),
+            "airline": flight.get("operating_as"),
         }
 
         # Build route string
@@ -175,13 +175,10 @@ class FlightRadar24API:
         }
 
     def test_connection(self) -> bool:
-        """Test API connectivity."""
+        """Test API connectivity by looking up a known active callsign."""
         try:
-            # Try a simple search with bounds parameter (required)
-            # Use a small area to limit results
-            data = self._request("live/flight-positions/light", {
-                "bounds": "25.0,25.5,55.0,55.5"  # Small area around UAE
-            })
+            # Try looking up a common Emirates flight as a test
+            data = self._request("live/flight-positions/full", {"callsigns": "UAE1"})
             if data and "data" in data:
                 log.info("FR24 API connection successful")
                 self._api_available = True
