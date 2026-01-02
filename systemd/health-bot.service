@@ -1,0 +1,15 @@
+[Unit]
+Description=Health Monitoring Telegram Bot
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/adsb-logger
+EnvironmentFile=/opt/adsb-logger/.env
+ExecStart=/usr/bin/python3 /opt/adsb-logger/health_bot.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

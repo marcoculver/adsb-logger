@@ -12,8 +12,11 @@ MAX_LOG_AGE_MINUTES=5
 LOG_TAG="adsb-health"
 
 # Telegram Configuration
-TELEGRAM_BOT_TOKEN="8279120117:AAGy7o3LdvTgB8jUTtluYbw_kxuBD_AFx9o"
-TELEGRAM_CHAT_ID="1269568755"
+# Set these environment variables before running
+if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+    echo "ERROR: TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID environment variables must be set"
+    exit 1
+fi
 
 # State file to avoid repeated alerts
 STATE_FILE="/var/run/adsb-health-state"

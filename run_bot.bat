@@ -11,8 +11,13 @@ REM   3. Double-click this file or run from command prompt
 
 REM --- Configuration ---
 REM Get your bot token from @BotFather on Telegram
+REM Set TELEGRAM_BOT_TOKEN environment variable before running
 if not defined TELEGRAM_BOT_TOKEN (
-    set TELEGRAM_BOT_TOKEN=8230471568:AAHuAf9uYkd9S5ZngkZ7PBo2aXEd4QrttsA
+    echo ERROR: TELEGRAM_BOT_TOKEN environment variable not set
+    echo Get your token from @BotFather and set it:
+    echo   set TELEGRAM_BOT_TOKEN=your-token-here
+    pause
+    exit /b 1
 )
 
 REM Your Telegram user ID (get it by messaging @userinfobot)

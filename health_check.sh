@@ -12,8 +12,11 @@
 #      */5 * * * * /path/to/health_check.sh >> /var/log/bot-health.log 2>&1
 
 # Configuration
-ALERT_CHAT_ID="1269568755"  # Your Telegram user ID
-ALERT_BOT_TOKEN="8380442252:AAHhJd8vHDGEDHZK0-F7k7LY3fwmnINqGbw"  # Use callsign bot for alerts
+# Set these environment variables before running
+if [ -z "$ALERT_CHAT_ID" ] || [ -z "$ALERT_BOT_TOKEN" ]; then
+    echo "ERROR: ALERT_CHAT_ID and ALERT_BOT_TOKEN environment variables must be set"
+    exit 1
+fi
 
 # State files to track if we already alerted
 STATE_DIR="/tmp/bot-health-state"

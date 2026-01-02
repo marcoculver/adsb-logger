@@ -10,8 +10,11 @@ LOG_DIR="/opt/adsb-logs"
 LOG_TAG="adsb-status"
 
 # Telegram Configuration
-TELEGRAM_BOT_TOKEN="8279120117:AAGy7o3LdvTgB8jUTtluYbw_kxuBD_AFx9o"
-TELEGRAM_CHAT_ID="1269568755"
+# Set these environment variables before running
+if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+    echo "ERROR: TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID environment variables must be set"
+    exit 1
+fi
 
 # Services to monitor
 SERVICES=(

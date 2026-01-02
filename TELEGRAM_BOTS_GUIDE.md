@@ -6,7 +6,7 @@ You now have **two separate bots** for different purposes:
 
 **Purpose:** Extract and analyze ANY flight from ADSB logs
 
-**Token:** `8230471568:AAHuAf9uYkd9S5ZngkZ7PBo2aXEd4QrttsA`
+**Token:** Set `FLIGHT_BOT_TOKEN` in `.env` file (see `.env.example`)
 
 **Commands:**
 - `/extract <callsign> <date>` - Extract flight with charts, CSV, KML
@@ -35,7 +35,7 @@ run_bot.bat
 
 **Purpose:** Track Emirates/Flydubai flights (schedule patterns, database queries)
 
-**Token:** `8380442252:AAHhJd8vHDGEDHZK0-F7k7LY3fwmnINqGbw`
+**Token:** Set `CALLSIGN_BOT_TOKEN` in `.env` file (see `.env.example`)
 
 **Username:** @callsignloggerbot
 

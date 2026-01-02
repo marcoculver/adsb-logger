@@ -57,8 +57,8 @@ The callsign bot is lightweight and doesn't need numpy/pandas/matplotlib!
 python3 -c "
 from telegram_bot.callsign_bot import CallsignBot
 import os
-os.environ['TELEGRAM_BOT_TOKEN'] = '8380442252:AAHhJd8vHDGEDHZK0-F7k7LY3fwmnINqGbw'
-os.environ['TELEGRAM_ALLOWED_USERS'] = '1269568755'
+os.environ['TELEGRAM_BOT_TOKEN'] = '[REDACTED-CALLSIGN-BOT-TOKEN]'
+os.environ['TELEGRAM_ALLOWED_USERS'] = '[REDACTED-USER-ID]'
 bot = CallsignBot()
 print('✓ Callsign bot OK')
 "
@@ -69,8 +69,8 @@ print('✓ Callsign bot OK')
 python3 -c "
 from telegram_bot.flight_bot import FlightExtractionBot
 import os
-os.environ['TELEGRAM_BOT_TOKEN'] = '8230471568:AAHuAf9uYkd9S5ZngkZ7PBo2aXEd4QrttsA'
-os.environ['TELEGRAM_ALLOWED_USERS'] = '1269568755'
+os.environ['TELEGRAM_BOT_TOKEN'] = '[REDACTED-FLIGHT-BOT-TOKEN]'
+os.environ['TELEGRAM_ALLOWED_USERS'] = '[REDACTED-USER-ID]'
 bot = FlightExtractionBot()
 print('✓ Flight bot OK')
 "

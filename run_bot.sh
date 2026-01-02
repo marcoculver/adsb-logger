@@ -9,7 +9,14 @@
 #   2. Run: ./run_bot.sh
 
 # --- Configuration ---
-export TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-8230471568:AAHuAf9uYkd9S5ZngkZ7PBo2aXEd4QrttsA}"
+# Set TELEGRAM_BOT_TOKEN environment variable before running
+# Get your bot token from @BotFather on Telegram
+if [ -z "$TELEGRAM_BOT_TOKEN" ]; then
+    echo "ERROR: TELEGRAM_BOT_TOKEN environment variable not set"
+    echo "Get your token from @BotFather and set it:"
+    echo "  export TELEGRAM_BOT_TOKEN='your-token-here'"
+    exit 1
+fi
 
 # Your Telegram user ID (get it by messaging @userinfobot)
 # Multiple users: comma-separated, e.g., 123456789,987654321

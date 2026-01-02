@@ -61,6 +61,24 @@ echo ""
 if [ "$install_flight_bot" = true ]; then
     echo "Creating Flight Extraction Bot service..."
 
+    # Check if .env file exists
+    if [ ! -f "$SCRIPT_DIR/.env" ]; then
+        echo "ERROR: .env file not found at $SCRIPT_DIR/.env"
+        echo "Please create it with your bot tokens:"
+        echo "  TELEGRAM_BOT_TOKEN=your-flight-bot-token"
+        echo "  TELEGRAM_ALLOWED_USERS=your-telegram-user-id"
+        exit 1
+    fi
+
+    # Read flight bot token from .env
+    FLIGHT_TOKEN=$(grep "^FLIGHT_BOT_TOKEN=" "$SCRIPT_DIR/.env" | cut -d= -f2-)
+    ALLOWED_USERS=$(grep "^TELEGRAM_ALLOWED_USERS=" "$SCRIPT_DIR/.env" | cut -d= -f2-)
+
+    if [ -z "$FLIGHT_TOKEN" ] || [ -z "$ALLOWED_USERS" ]; then
+        echo "ERROR: Missing FLIGHT_BOT_TOKEN or TELEGRAM_ALLOWED_USERS in .env file"
+        exit 1
+    fi
+
     cat > /etc/systemd/system/adsb-flight-bot.service <<EOF
 [Unit]
 Description=ADSB Flight Extraction Telegram Bot
@@ -70,8 +88,8 @@ After=network.target
 Type=simple
 User=$ACTUAL_USER
 WorkingDirectory=$SCRIPT_DIR
-Environment="TELEGRAM_BOT_TOKEN=8230471568:AAHuAf9uYkd9S5ZngkZ7PBo2aXEd4QrttsA"
-Environment="TELEGRAM_ALLOWED_USERS=1269568755"
+Environment="TELEGRAM_BOT_TOKEN=$FLIGHT_TOKEN"
+Environment="TELEGRAM_ALLOWED_USERS=$ALLOWED_USERS"
 Environment="ADSB_LOG_DIR=/opt/adsb-logs"
 Environment="ADSB_OUTPUT_DIR=/opt/adsb-logs/analyses"
 ExecStart=/usr/bin/python3 -m telegram_bot.flight_bot
@@ -89,6 +107,14 @@ fi
 if [ "$install_callsign_bot" = true ]; then
     echo "Creating Callsign Tracker Bot service..."
 
+    # Read callsign bot token from .env
+    CALLSIGN_TOKEN=$(grep "^CALLSIGN_BOT_TOKEN=" "$SCRIPT_DIR/.env" | cut -d= -f2-)
+
+    if [ -z "$CALLSIGN_TOKEN" ]; then
+        echo "ERROR: Missing CALLSIGN_BOT_TOKEN in .env file"
+        exit 1
+    fi
+
     cat > /etc/systemd/system/callsign-tracker-bot.service <<EOF
 [Unit]
 Description=Emirates/Flydubai Callsign Tracker Telegram Bot
@@ -98,8 +124,8 @@ After=network.target
 Type=simple
 User=$ACTUAL_USER
 WorkingDirectory=$SCRIPT_DIR
-Environment="TELEGRAM_BOT_TOKEN=8380442252:AAHhJd8vHDGEDHZK0-F7k7LY3fwmnINqGbw"
-Environment="TELEGRAM_ALLOWED_USERS=1269568755"
+Environment="TELEGRAM_BOT_TOKEN=$CALLSIGN_TOKEN"
+Environment="TELEGRAM_ALLOWED_USERS=$ALLOWED_USERS"
 Environment="CALLSIGN_DB_PATH=/opt/adsb-logs/callsigns.db"
 ExecStart=/usr/bin/python3 -m telegram_bot.callsign_bot
 Restart=always

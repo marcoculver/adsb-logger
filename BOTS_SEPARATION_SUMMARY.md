@@ -9,14 +9,14 @@ Successfully separated the Telegram bot functionality into two independent bots:
 - **Purpose:** Extract ANY flight from ADSB logs
 - **Commands:** `/extract`, `/list`, `/status`
 - **Launch:** `run_bot.bat` (Windows) or `run_bot.sh` (Linux)
-- **Token:** `8230471568:AAHuAf9uYkd9S5ZngkZ7PBo2aXEd4QrttsA`
+- **Token:** Set `FLIGHT_BOT_TOKEN` in `.env` file
 
 ### 2. ✅ Callsign Tracker Bot (@callsignloggerbot)
 - **File:** `telegram_bot/callsign_bot.py`
 - **Purpose:** Track Emirates/Flydubai only (schedules, patterns)
 - **Commands:** `/callsigns`, `/schedule`, `/lookup`, `/csexport`, `/stats`
 - **Launch:** `run_callsign_bot.bat` (Windows) or `run_callsign_bot.sh` (Linux)
-- **Token:** `8380442252:AAHhJd8vHDGEDHZK0-F7k7LY3fwmnINqGbw`
+- **Token:** Set `CALLSIGN_BOT_TOKEN` in `.env` file
 
 ## Files Created/Modified
 

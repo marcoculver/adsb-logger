@@ -98,8 +98,8 @@ After=network.target
 Type=simple
 User=pi
 WorkingDirectory=/home/pi/adsb-logger
-Environment="TELEGRAM_BOT_TOKEN=8230471568:AAHuAf9uYkd9S5ZngkZ7PBo2aXEd4QrttsA"
-Environment="TELEGRAM_ALLOWED_USERS=1269568755"
+Environment="TELEGRAM_BOT_TOKEN=[REDACTED-FLIGHT-BOT-TOKEN]"
+Environment="TELEGRAM_ALLOWED_USERS=[REDACTED-USER-ID]"
 Environment="ADSB_LOG_DIR=/opt/adsb-logs"
 Environment="ADSB_OUTPUT_DIR=/opt/adsb-logs/analyses"
 ExecStart=/usr/bin/python3 -m telegram_bot.flight_bot
@@ -120,8 +120,8 @@ After=network.target
 Type=simple
 User=pi
 WorkingDirectory=/home/pi/adsb-logger
-Environment="TELEGRAM_BOT_TOKEN=8380442252:AAHhJd8vHDGEDHZK0-F7k7LY3fwmnINqGbw"
-Environment="TELEGRAM_ALLOWED_USERS=1269568755"
+Environment="TELEGRAM_BOT_TOKEN=[REDACTED-CALLSIGN-BOT-TOKEN]"
+Environment="TELEGRAM_ALLOWED_USERS=[REDACTED-USER-ID]"
 Environment="CALLSIGN_DB_PATH=/opt/adsb-logs/callsigns.db"
 ExecStart=/usr/bin/python3 -m telegram_bot.callsign_bot
 Restart=always
@@ -368,7 +368,7 @@ sudo journalctl -u adsb-flight-bot -n 100 | grep -i error
 3. **Test bot token:**
    ```bash
    # Test with curl
-   TOKEN="8230471568:AAHuAf9uYkd9S5ZngkZ7PBo2aXEd4QrttsA"
+   TOKEN="[REDACTED-FLIGHT-BOT-TOKEN]"
    curl -s "https://api.telegram.org/bot$TOKEN/getMe" | jq
    ```
 

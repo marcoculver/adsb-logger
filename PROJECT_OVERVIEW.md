@@ -216,8 +216,8 @@ systemctl status SERVICE_NAME
 
 **User**: `root`
 **Environment**:
-- `TELEGRAM_BOT_TOKEN=8380442252:AAHhJd8vHDGEDHZK0-F7k7LY3fwmnINqGbw`
-- `TELEGRAM_ALLOWED_USERS=1269568755`
+- `TELEGRAM_BOT_TOKEN=[REDACTED-CALLSIGN-BOT-TOKEN]`
+- `TELEGRAM_ALLOWED_USERS=[REDACTED-USER-ID]`
 - `LOG_DIR=/opt/adsb-logs`
 
 **Status**: Should always be running
@@ -230,8 +230,8 @@ systemctl status SERVICE_NAME
 
 **User**: `root`
 **Environment**:
-- `TELEGRAM_BOT_TOKEN=8380442252:AAHhJd8vHDGEDHZK0-F7k7LY3fwmnINqGbw`
-- `TELEGRAM_ALLOWED_USERS=1269568755`
+- `TELEGRAM_BOT_TOKEN=[REDACTED-CALLSIGN-BOT-TOKEN]`
+- `TELEGRAM_ALLOWED_USERS=[REDACTED-USER-ID]`
 - `CALLSIGN_DB_PATH=/opt/adsb-logs/callsigns.db`
 
 **Status**: Should always be running
@@ -374,14 +374,14 @@ The project uses three separate Telegram bots for different purposes.
 ### Bot Configuration
 
 #### 1. Health Monitoring Bot
-- **Bot Token**: `8279120117:AAGy7o3LdvTgB8jUTtluYbw_kxuBD_AFx9o`
-- **Allowed User ID**: `1269568755`
+- **Bot Token**: `[REDACTED-HEALTH-BOT-TOKEN]`
+- **Allowed User ID**: `[REDACTED-USER-ID]`
 - **Purpose**: System health alerts and status reports
 - **Used by**: Health check and status report scripts
 
 #### 2. Flight & Callsign Bots
-- **Bot Token**: `8380442252:AAHhJd8vHDGEDHZK0-F7k7LY3fwmnINqGbw`
-- **Allowed User ID**: `1269568755`
+- **Bot Token**: `[REDACTED-CALLSIGN-BOT-TOKEN]`
+- **Allowed User ID**: `[REDACTED-USER-ID]`
 - **Purpose**: Flight tracking and callsign queries
 - **Used by**: Flight bot and Callsign tracker bot services
 
@@ -435,7 +435,7 @@ The health monitoring system provides two types of notifications:
 
 **Delivery**:
 - **Email**: marcoculver@gmail.com (via msmtp)
-- **Telegram**: Sent to chat ID 1269568755
+- **Telegram**: Sent to chat ID [REDACTED-USER-ID]
 
 **Alert format**:
 - Subject line includes hostname and issue
@@ -626,11 +626,11 @@ SELECT * FROM callsigns WHERE callsign = 'UAE123';
 ### Environment Variables (Set in systemd services)
 ```bash
 # Telegram Bot Configuration (Flight & Callsign Bots)
-TELEGRAM_BOT_TOKEN=8380442252:AAHhJd8vHDGEDHZK0-F7k7LY3fwmnINqGbw
-TELEGRAM_ALLOWED_USERS=1269568755
+TELEGRAM_BOT_TOKEN=[REDACTED-CALLSIGN-BOT-TOKEN]
+TELEGRAM_ALLOWED_USERS=[REDACTED-USER-ID]
 
 # Health Monitoring Bot (in health check scripts)
-TELEGRAM_BOT_TOKEN=8279120117:AAGy7o3LdvTgB8jUTtluYbw_kxuBD_AFx9o
+TELEGRAM_BOT_TOKEN=[REDACTED-HEALTH-BOT-TOKEN]
 
 # Paths
 LOG_DIR=/opt/adsb-logs
@@ -809,8 +809,8 @@ sudo tail /var/log/msmtp.log
 **Check Telegram**:
 ```bash
 # Test Telegram API
-curl -X POST "https://api.telegram.org/bot8380442252:AAHhJd8vHDGEDHZK0-F7k7LY3fwmnINqGbw/sendMessage" \
-  -d "chat_id=1269568755" \
+curl -X POST "https://api.telegram.org/bot[REDACTED-CALLSIGN-BOT-TOKEN]/sendMessage" \
+  -d "chat_id=[REDACTED-USER-ID]" \
   -d "text=Test message"
 ```
 
@@ -936,7 +936,7 @@ GROUP BY airline;
 - **Pi Hostname**: adsbpi-base
 - **SSH User**: adsbpi-base
 - **Email Alerts**: marcoculver@gmail.com
-- **Telegram User ID**: 1269568755
+- **Telegram User ID**: [REDACTED-USER-ID]
 - **Project Location**: `/opt/adsb-logger/`
 - **Log Location**: `/opt/adsb-logs/`
 - **Dropbox**: `Dropbox/ADSBPi-Base/raw/`
