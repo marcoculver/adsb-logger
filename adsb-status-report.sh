@@ -10,7 +10,7 @@ LOG_DIR="/opt/adsb-logs"
 LOG_TAG="adsb-status"
 
 # Telegram Configuration
-TELEGRAM_BOT_TOKEN="8380442252:AAHhJd8vHDGEDHZK0-F7k7LY3fwmnINqGbw"
+TELEGRAM_BOT_TOKEN="8279120117:AAGy7o3LdvTgB8jUTtluYbw_kxuBD_AFx9o"
 TELEGRAM_CHAT_ID="1269568755"
 
 # Services to monitor

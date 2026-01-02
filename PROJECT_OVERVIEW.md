@@ -369,12 +369,21 @@ docker ps
 
 ## Telegram Bots
 
-Both bots use the same token but serve different purposes.
+The project uses three separate Telegram bots for different purposes.
 
 ### Bot Configuration
+
+#### 1. Health Monitoring Bot
+- **Bot Token**: `8279120117:AAGy7o3LdvTgB8jUTtluYbw_kxuBD_AFx9o`
+- **Allowed User ID**: `1269568755`
+- **Purpose**: System health alerts and status reports
+- **Used by**: Health check and status report scripts
+
+#### 2. Flight & Callsign Bots
 - **Bot Token**: `8380442252:AAHhJd8vHDGEDHZK0-F7k7LY3fwmnINqGbw`
 - **Allowed User ID**: `1269568755`
-- **Bot Username**: Check with BotFather on Telegram
+- **Purpose**: Flight tracking and callsign queries
+- **Used by**: Flight bot and Callsign tracker bot services
 
 ### 1. Flight Extraction Bot
 **Service**: `adsb-flight-bot.service`
@@ -616,9 +625,12 @@ SELECT * FROM callsigns WHERE callsign = 'UAE123';
 
 ### Environment Variables (Set in systemd services)
 ```bash
-# Telegram Bot Configuration
+# Telegram Bot Configuration (Flight & Callsign Bots)
 TELEGRAM_BOT_TOKEN=8380442252:AAHhJd8vHDGEDHZK0-F7k7LY3fwmnINqGbw
 TELEGRAM_ALLOWED_USERS=1269568755
+
+# Health Monitoring Bot (in health check scripts)
+TELEGRAM_BOT_TOKEN=8279120117:AAGy7o3LdvTgB8jUTtluYbw_kxuBD_AFx9o
 
 # Paths
 LOG_DIR=/opt/adsb-logs
