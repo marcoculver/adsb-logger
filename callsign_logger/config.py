@@ -10,7 +10,11 @@ FR24_API_TOKEN = os.environ.get(
 )
 
 # Database path
-if sys.platform == "win32":
+# Allow override via environment variable
+if os.environ.get("CALLSIGN_DB_PATH"):
+    DEFAULT_DB_PATH = Path(os.environ.get("CALLSIGN_DB_PATH"))
+    DEFAULT_LOG_DIR = DEFAULT_DB_PATH.parent
+elif sys.platform == "win32":
     DEFAULT_DB_PATH = Path(r"M:\Dropbox\ADSBPi-Base\callsigns.db")
     DEFAULT_LOG_DIR = Path(r"M:\Dropbox\ADSBPi-Base\raw")
 else:

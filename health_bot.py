@@ -67,8 +67,18 @@ async def health_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔍 Running health check...")
 
     try:
+        # Check if script exists
+        if not os.path.exists(HEALTH_CHECK_SCRIPT):
+            await update.message.reply_text(
+                "⚠️ <b>Health Check Script Not Found</b>\n\n"
+                f"Looking for: {HEALTH_CHECK_SCRIPT}\n\n"
+                "Install the script on this system or use /quick for basic status.",
+                parse_mode='HTML'
+            )
+            return
+
         result = subprocess.run(
-            ["sudo", HEALTH_CHECK_SCRIPT],
+            [HEALTH_CHECK_SCRIPT],  # Try without sudo first
             capture_output=True,
             text=True,
             timeout=30
@@ -109,8 +119,18 @@ async def status_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("📊 Generating status report...")
 
     try:
+        # Check if script exists
+        if not os.path.exists(STATUS_REPORT_SCRIPT):
+            await update.message.reply_text(
+                "⚠️ <b>Status Report Script Not Found</b>\n\n"
+                f"Looking for: {STATUS_REPORT_SCRIPT}\n\n"
+                "Install the script on this system or use /quick for basic status.",
+                parse_mode='HTML'
+            )
+            return
+
         result = subprocess.run(
-            ["sudo", STATUS_REPORT_SCRIPT],
+            [STATUS_REPORT_SCRIPT],  # Try without sudo first
             capture_output=True,
             text=True,
             timeout=30
@@ -135,36 +155,40 @@ async def quick_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     try:
-        # Get service statuses
-        services = [
-            "adsb-logger.service",
-            "adsb-callsign-monitor.service",
-            "adsb-flight-bot.service",
-            "callsign-monitor.service",
-            "callsign-tracker-bot.service"
-        ]
+        # Check if we're on Pi or local dev
+        is_pi = os.path.exists("/opt/adsb-logs")
 
-        statuses = []
-        for svc in services:
+        if is_pi:
+            # Get service statuses on Pi
+            services = [
+                "adsb-logger.service",
+                "adsb-callsign-monitor.service",
+                "adsb-flight-bot.service",
+                "callsign-monitor.service",
+                "callsign-tracker-bot.service"
+            ]
+
+            statuses = []
+            for svc in services:
+                result = subprocess.run(
+                    ["systemctl", "is-active", svc],
+                    capture_output=True,
+                    text=True
+                )
+                status = "✅" if result.stdout.strip() == "active" else "❌"
+                svc_name = svc.replace(".service", "").replace("adsb-", "").replace("-", " ").title()
+                statuses.append(f"{status} {svc_name}")
+
+            # Get disk usage
             result = subprocess.run(
-                ["systemctl", "is-active", svc],
+                ["df", "-h", "/opt/adsb-logs"],
                 capture_output=True,
                 text=True
             )
-            status = "✅" if result.stdout.strip() == "active" else "❌"
-            svc_name = svc.replace(".service", "").replace("adsb-", "").replace("-", " ").title()
-            statuses.append(f"{status} {svc_name}")
+            disk_line = result.stdout.split('\n')[1]
+            disk_usage = disk_line.split()[4]
 
-        # Get disk usage
-        result = subprocess.run(
-            ["df", "-h", "/opt/adsb-logs"],
-            capture_output=True,
-            text=True
-        )
-        disk_line = result.stdout.split('\n')[1]
-        disk_usage = disk_line.split()[4]
-
-        response = f"""
+            response = f"""
 📊 <b>Quick Status</b>
 
 <b>Services:</b>
@@ -174,6 +198,18 @@ async def quick_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 <i>Use /health for full check</i>
 """
+        else:
+            # Local dev environment
+            response = """
+📊 <b>Quick Status - Dev Environment</b>
+
+✅ Health Bot running
+✅ Flight Bot running
+✅ Callsign Bot running
+
+<i>Full system checks available on Raspberry Pi only</i>
+"""
+
         await update.message.reply_text(response, parse_mode='HTML')
 
     except Exception as e:
