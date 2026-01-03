@@ -35,3 +35,8 @@ Thumbs.db
 
 # Analyses output (large files, synced via Dropbox)
 analyses/
+
+# Bot runtime files
+bot_*.log
+data/
+callsigns_test/

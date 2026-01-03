@@ -59,7 +59,7 @@ Available commands:
 
 
 async def health_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Run health check script"""
+    """Run health check"""
     if not check_auth(update.effective_user.id):
         await update.message.reply_text("❌ Unauthorized")
         return
@@ -67,47 +67,45 @@ async def health_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔍 Running health check...")
 
     try:
-        # Check if script exists
-        if not os.path.exists(HEALTH_CHECK_SCRIPT):
-            await update.message.reply_text(
-                "⚠️ <b>Health Check Script Not Found</b>\n\n"
-                f"Looking for: {HEALTH_CHECK_SCRIPT}\n\n"
-                "Install the script on this system or use /quick for basic status.",
-                parse_mode='HTML'
+        # Check bot processes
+        bots_status = []
+        for bot_name in ["flight_bot", "callsign_bot", "health_bot"]:
+            result = subprocess.run(
+                ["pgrep", "-f", bot_name],
+                capture_output=True
             )
-            return
+            status = "✅" if result.returncode == 0 else "❌"
+            bots_status.append(f"{status} {bot_name.replace('_', ' ').title()}")
 
-        result = subprocess.run(
-            [HEALTH_CHECK_SCRIPT],  # Try without sudo first
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
+        # Check disk space
+        disk_info = ""
+        try:
+            result = subprocess.run(["df", "-h", "/"], capture_output=True, text=True)
+            lines = result.stdout.split('\n')
+            if len(lines) > 1:
+                parts = lines[1].split()
+                if len(parts) >= 5:
+                    disk_info = f"💾 Disk: {parts[4]} used ({parts[3]} free)"
+        except:
+            disk_info = "💾 Disk: Unable to check"
 
-        # Parse output for summary
-        output = result.stdout
-        if "✓ Health check passed - all systems normal" in output:
-            response = "✅ <b>Health Check: PASSED</b>\n\nAll systems operational!"
-        else:
-            # Extract issues
-            issues = []
-            for line in output.split('\n'):
-                if '[err]' in line or '✗' in line:
-                    issues.append(line.strip())
+        response = f"""
+✅ <b>Health Check Complete</b>
 
-            response = "⚠️ <b>Health Check: ISSUES FOUND</b>\n\n"
-            if issues:
-                response += "\n".join(f"• {issue}" for issue in issues[:10])
-            else:
-                response += "Check logs for details"
+<b>Bot Processes:</b>
+{chr(10).join(bots_status)}
 
+{disk_info}
+
+<b>System:</b> {subprocess.run(['hostname'], capture_output=True, text=True).stdout.strip()}
+
+<i>For detailed Pi health check, install scripts on Pi</i>
+"""
         await update.message.reply_text(response, parse_mode='HTML')
 
-    except subprocess.TimeoutExpired:
-        await update.message.reply_text("❌ Health check timed out")
     except Exception as e:
         logger.error(f"Health check failed: {e}")
-        await update.message.reply_text(f"❌ Error running health check: {e}")
+        await update.message.reply_text(f"❌ Error: {e}")
 
 
 async def status_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -119,30 +117,68 @@ async def status_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("📊 Generating status report...")
 
     try:
-        # Check if script exists
-        if not os.path.exists(STATUS_REPORT_SCRIPT):
-            await update.message.reply_text(
-                "⚠️ <b>Status Report Script Not Found</b>\n\n"
-                f"Looking for: {STATUS_REPORT_SCRIPT}\n\n"
-                "Install the script on this system or use /quick for basic status.",
-                parse_mode='HTML'
-            )
-            return
+        # Get uptime
+        uptime_result = subprocess.run(["uptime", "-p"], capture_output=True, text=True)
+        uptime = uptime_result.stdout.strip().replace("up ", "") if uptime_result.returncode == 0 else "unknown"
 
-        result = subprocess.run(
-            [STATUS_REPORT_SCRIPT],  # Try without sudo first
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
+        # Get load average
+        load_result = subprocess.run(["uptime"], capture_output=True, text=True)
+        load = "unknown"
+        if "load average:" in load_result.stdout:
+            load = load_result.stdout.split("load average:")[-1].strip()
 
-        if result.returncode == 0:
-            await update.message.reply_text("✅ Status report sent!")
-        else:
-            await update.message.reply_text(f"❌ Error: {result.stderr}")
+        # Check bot processes with uptime
+        bots = []
+        for bot_name, display_name in [("flight_bot", "Flight Bot"), ("callsign_bot", "Callsign Bot"), ("health_bot", "Health Bot")]:
+            result = subprocess.run(["pgrep", "-f", bot_name], capture_output=True)
+            if result.returncode == 0:
+                bots.append(f"✅ {display_name}")
+            else:
+                bots.append(f"❌ {display_name}")
 
-    except subprocess.TimeoutExpired:
-        await update.message.reply_text("❌ Status report timed out")
+        # Memory info
+        mem_result = subprocess.run(["free", "-h"], capture_output=True, text=True)
+        mem_used = mem_free = "N/A"
+        if mem_result.returncode == 0:
+            lines = mem_result.stdout.split('\n')
+            if len(lines) > 1:
+                parts = lines[1].split()
+                if len(parts) >= 4:
+                    mem_used = parts[2]
+                    mem_free = parts[3]
+
+        # Disk info
+        disk_result = subprocess.run(["df", "-h", "/"], capture_output=True, text=True)
+        disk_usage = disk_free = "N/A"
+        if disk_result.returncode == 0:
+            lines = disk_result.stdout.split('\n')
+            if len(lines) > 1:
+                parts = lines[1].split()
+                if len(parts) >= 5:
+                    disk_usage = parts[4]
+                    disk_free = parts[3]
+
+        response = f"""
+📊 <b>System Status Report</b>
+
+<b>System:</b> {subprocess.run(['hostname'], capture_output=True, text=True).stdout.strip()}
+<b>Time:</b> {subprocess.run(['date'], capture_output=True, text=True).stdout.strip()}
+
+━━━━━━━━━━━━━━━━━━━━
+<b>BOTS</b>
+{chr(10).join(bots)}
+
+<b>SYSTEM</b>
+⏰ Uptime: {uptime}
+📈 Load: {load}
+🧠 Memory: {mem_used} used, {mem_free} free
+💾 Disk: {disk_usage} used, {disk_free} free
+
+━━━━━━━━━━━━━━━━━━━━
+<i>Detailed Pi monitoring requires Pi scripts</i>
+"""
+        await update.message.reply_text(response, parse_mode='HTML')
+
     except Exception as e:
         logger.error(f"Status report failed: {e}")
         await update.message.reply_text(f"❌ Error: {e}")
